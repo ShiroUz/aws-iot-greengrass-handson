@@ -1,5 +1,7 @@
 module "iot_rule" {
-  source         = "git::https://github.com/ShiroUz/terraform-aws-iot-rules.git"
+  source         = "ShiroUz/iot-rules/aws"
+  version        = "~> 1.0"
+  
   for_each       = { for k, v in try(local.iot.rule, {}) : k => v }
   rule_name      = replace("${local.env.environment}_${local.env.project}_${each.key}_rule", "-", "_")
   enabled        = try(each.value.enabled, true)

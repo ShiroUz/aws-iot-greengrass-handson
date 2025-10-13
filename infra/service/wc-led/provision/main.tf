@@ -1,12 +1,16 @@
 data "aws_caller_identity" "self" {}
 module "gg_parent" {
-  source = "git::https://github.com/ShiroUz/terraform-aws-iot-greengrass-setup.git//parent"
+  source  = "ShiroUz/iot-greengrass-setup/aws//parent"
+  version = "~> 1.0"
+
   # Thing Group設定
   thing_group_parent_name = "${local.env.environment}-${local.env.project}-parent"
 }
 
 module "iot_greengrass" {
-  source   = "git::https://github.com/ShiroUz/terraform-aws-iot-greengrass-setup.git"
+  source   = "ShiroUz/iot-greengrass-setup/aws"
+  version  = "~> 1.0"
+  
   for_each = { for k, v in try(local.greengrass, {}) : k => v }
   # Thing Group configuration
   thing_group_parent_name = "${local.env.environment}-${local.env.project}-parent"
