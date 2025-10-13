@@ -1,0 +1,273 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: IoT Greengrass Weather Check Lambda Function
+
+Parameters:
+  env:
+    Type: String
+    Description: Deploy Dev
+    Default: dev
+  pj:
+    Type: String
+    Description: Deploy Dev
+    Default: aws-gg-handson
+  pjc:
+    Type: String
+    Description: Deploy Dev
+    Default: aws-gg-handson-wc-led
+  CronLambdaName:
+    Type: String
+    Description: lambda name
+    Default: c-weather-check
+  EventLambdaName:
+    Type: String
+    Description: lambda name
+    Default: e-weather-check
+  REGION:
+    Type: String
+    Description: AWS Region
+    Default: ap-northeast-1
+  IOTENDPOINT:
+    Type: String
+    Description: AWS IoT Endpoint
+    Default: xxxxxxxxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com
+  PARTITIONKEY:
+    Type: String
+    Description: DynamoDB Partition Key
+    Default: ThingId
+  MODELID:
+    Type: String
+    Description: Bedrock Model ID
+    Default: amazon.titan-text-express-v1
+  INFERENCEPROFILEARN:
+    Type: String
+    Description: Bedrock Application Inference Profile ARN
+    Default: "INFERENCEPROFILEARN=arn:aws:bedrock:ap-northeast-1:xxxxxxxxxxxxx:application-inference-profile/xxxxxxxxxxx"
+  TTSMODEL:
+    Type: String
+    Description: Text-to-Speech Model
+    Default: Tomoko
+
+Resources:
+  CronWeatherCheckLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${env}-${pjc}-${CronLambdaName}'
+      CodeUri: function/
+      Handler: src.service.handler.cron_handler
+      Layers:
+        - !Ref WeatherCheckLambdaLayer
+      Runtime: python3.13
+      AutoPublishAlias: live
+      Architectures: [ arm64 ]
+      Timeout: 900
+      MemorySize: 256
+      Role: !GetAtt CronWeatherCheckLambdaRole.Arn
+      Environment: 
+        Variables:
+          REGION: !Ref REGION
+          TABLE_NAME: !Sub '${env}-${pjc}-device-address-dynamodb'
+          PARTITION_KEY: !Ref PARTITIONKEY
+          MODEL_ID: !Ref MODELID
+          SYSTEMPROMPT_WEATHER_CHECK_NAME: !Sub '/${env}/${pj}/wc-led/SYSTEMPROMPT_WEATHER_CHECK'
+          SYSTEMPROMPT_TRANSFER_LED_POW_NAME: !Sub '/${env}/${pj}/wc-led/SYSTEMPROMPT_TRANSFER_LED_POW'
+          IOTENDPOINT: !Ref IOTENDPOINT
+          TTS_MODEL: !Ref TTSMODEL
+          S3_BUCKET_NAME: !Sub '${env}-${pjc}-tts-${AWS::AccountId}'
+          INFERENCE_PROFILE_ARN: !Ref INFERENCEPROFILEARN
+      Events:
+        Scheduled:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 7 ? * MON,TUE,WED,THU,FRI *)
+            State: ENABLED
+            Name: !Sub '${env}-${pjc}-${CronLambdaName}-schedule'
+            Description: !Sub '${env}-${pjc}-${CronLambdaName}-schedule'
+            RetryPolicy:
+              MaximumRetryAttempts: 5
+              MaximumEventAgeInSeconds: 3600
+            ScheduleExpressionTimezone: "Asia/Tokyo"
+
+  WeatherCheckLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: Layer description
+      ContentUri: 'layer/python.zip'
+      CompatibleRuntimes:
+        - python3.13
+    Metadata:
+      BuildMethod: python3.13
+
+  CronWeatherCheckLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${env}-${pjc}-${CronLambdaName}-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: lambda.amazonaws.com
+      Policies:
+        - PolicyName: !Sub "${env}-${pjc}-${CronLambdaName}-execution-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${env}-${pjc}-${CronLambdaName}*"
+              - Effect: "Allow"
+                Action:
+                  - "ssm:GetParameter"
+                Resource: 
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${env}/${pj}/wc-led/*"
+              - Effect: "Allow"
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:Query"
+                  - "dynamodb:Scan"
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${env}-${pjc}-*"
+              - Effect: "Allow"
+                Action:
+                  - "bedrock:InvokeModel"
+                Resource:
+                  - !Ref INFERENCEPROFILEARN
+                  - "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                Resource: !Sub "arn:aws:s3:::${env}-${pjc}-tts-${AWS::AccountId}/*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:ListBucket"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "iot:Publish"
+                Resource: 
+                  - !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/cmd/aws_gg_handson/wc_led/*"
+
+  CloudWatchCronWeatherCheckLambdaLogsGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${CronWeatherCheckLambda}
+      RetentionInDays: 14
+
+  EventWeatherCheckLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${env}-${pjc}-${EventLambdaName}'
+      CodeUri: function/
+      Handler: src.service.handler.event_handler
+      Layers:
+        - !Ref WeatherCheckLambdaLayer
+      Runtime: python3.13
+      AutoPublishAlias: live
+      Architectures: [ arm64 ]
+      Timeout: 900
+      MemorySize: 256
+      Role: !GetAtt EventWeatherCheckLambdaRole.Arn
+      Environment: 
+        Variables:
+          REGION: !Ref REGION
+          TABLE_NAME: !Sub '${env}-${pjc}-device-address-dynamodb'
+          PARTITION_KEY: !Ref PARTITIONKEY
+          MODEL_ID: !Ref MODELID
+          SYSTEMPROMPT_WEATHER_CHECK_NAME: !Sub '/${env}/${pj}/wc-led/SYSTEMPROMPT_WEATHER_CHECK'
+          SYSTEMPROMPT_TRANSFER_LED_POW_NAME: !Sub '/${env}/${pj}/wc-led/SYSTEMPROMPT_TRANSFER_LED_POW'
+          IOTENDPOINT: !Ref IOTENDPOINT
+          TTS_MODEL: !Ref TTSMODEL
+          S3_BUCKET_NAME: !Sub '${env}-${pjc}-tts-${AWS::AccountId}'
+          INFERENCE_PROFILE_ARN: !Ref INFERENCEPROFILEARN
+
+  EventWeatherCheckLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref EventWeatherCheckLambda
+      Principal: "iot.amazonaws.com"
+      SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${env}_aws_gg_handson_weather_command_rule"
+      SourceAccount: !Sub "${AWS::AccountId}"
+
+  EventWeatherCheckLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${env}-${pjc}-${EventLambdaName}-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: lambda.amazonaws.com
+      Policies:
+        - PolicyName: !Sub "${env}-${pjc}-${EventLambdaName}-execution-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${env}-${pjc}-${EventLambdaName}*"
+              - Effect: "Allow"
+                Action:
+                  - "ssm:GetParameter"
+                  - "ssm:GetParameters"
+                  - "ssm:GetParametersByPath"
+                Resource: 
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${env}/${pj}/wc-led/*"
+              - Effect: "Allow"
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:Query"
+                  - "dynamodb:Scan"
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${env}-${pjc}-*"
+              - Effect: "Allow"
+                Action:
+                  - "bedrock:InvokeModel"
+                Resource:
+                  - !Ref INFERENCEPROFILEARN
+                  - "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                Resource: !Sub "arn:aws:s3:::${env}-${pjc}-tts-${AWS::AccountId}/*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:ListBucket"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "polly:*"
+                Resource: 
+                  - "*"
+              - Effect: "Allow"
+                Action:
+                  - "iot:Publish"
+                Resource: 
+                  - !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/cmd/aws_gg_handson/wc_led/*"
+
+  CloudWatchEventWeatherCheckLambdaLogsGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${EventWeatherCheckLambda}
+      RetentionInDays: 14
+
+Outputs:
+  WeatherCheckCronLambdaName:
+    Value: !Ref CronWeatherCheckLambda
+  CloudWatchCronWeatherCheckLambdaLogsGroupName:
+    Value: !Ref CloudWatchCronWeatherCheckLambdaLogsGroup
+
+  WeatherCheckEventLambdaName:
+    Value: !Ref EventWeatherCheckLambda
+  CloudWatchEventWeatherCheckLambdaLogsGroupName:
+    Value: !Ref CloudWatchEventWeatherCheckLambdaLogsGroup

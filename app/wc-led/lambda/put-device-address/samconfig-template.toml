@@ -1,0 +1,28 @@
+version = 0.1
+[default]
+
+[default.build.parameters]
+debug = true
+use_container = false
+
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "dev-aws-gg-handson-wc-led-lambda-put-device-address"
+s3_bucket = "dev-aws-gg-handson-app-resources-<AWS Account ID>"
+s3_prefix = "dev/aws-gg-handson/wc-led/lambda/put-device-address"
+region = "ap-northeast-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_NAMED_IAM"
+disable_rollback = false
+parameter_overrides = [
+  "env=dev",
+  "pjc=aws-gg-handson-wc-led",
+  "LambdaName=put-device-address"
+]
+tags = [
+  "pj=\"aws-gg-handson\"",
+  "pjc=\"aws-gg-handson-wc-led\"",
+  "user=\"ShiroUz\"",
+  "env=\"dev\"",
+  "deployment-type=\"SAM\""
+]

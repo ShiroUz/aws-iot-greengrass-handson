@@ -1,0 +1,17 @@
+services:
+  ai-dp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    privileged: true  # Required for camera access
+    devices:
+      - /dev/video0:/dev/video0  # Camera device
+    volumes:
+      - ./:/app  # Mount local directory for development
+    environment:
+      - PYTHONUNBUFFERED=1  # Disable Python output buffering
+      - AWS_PROFILE=default  # Use local AWS credentials
+      - AWS_REGION=ap-northeast-1  # Set AWS region
+      - AWS_IOT_THING_NAME=DevDevice  # Set a development device name
+    network_mode: "host"  # Use host network

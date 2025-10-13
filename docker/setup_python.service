@@ -1,0 +1,17 @@
+[Unit]
+Description=Install Python
+After=multi-user.target
+Wants=network-online.target
+
+[Service]
+User=pi
+Type=simple
+WorkingDirectory=/home/pi/
+ExecStartPre=/bin/sleep 10
+ExecStart=/bin/bash -i -c "source /home/pi/setup_python.sh"
+Restart=always
+RestartSec=60
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+
+[Install]
+WantedBy=multi-user.target

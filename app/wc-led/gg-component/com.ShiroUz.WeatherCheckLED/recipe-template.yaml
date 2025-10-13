@@ -1,0 +1,43 @@
+---
+RecipeFormatVersion: "2020-01-25"
+ComponentName: "com.ShiroUz.WeatherCheckLED"
+ComponentVersion: "${COMPONENT_VERSION}"
+ComponentType: aws.greengrass.generic
+ComponentDescription: "Weather Check component running in Docker container with GPIO support"
+ComponentPublisher: "ShiroUz"
+ComponentConfiguration:
+  DefaultConfiguration:
+    Message: "World"
+    LogLevel: "INFO"
+    accessControl:
+      aws.greengrass.ipc.mqttproxy:
+        com.mike.HelloWorld:pubsub:1:
+          policyDescription: Publish and subscribe to any topic
+          operations:
+            - aws.greengrass#PublishToIoTCore
+            - aws.greengrass#SubscribeToIoTCore
+          resources:
+            - "*"
+ComponentDependencies:
+  aws.greengrass.TokenExchangeService:
+    VersionRequirement: ~2.0.0
+    DependencyType: "HARD"
+  aws.greengrass.DockerApplicationManager:
+    VersionRequirement: ~2.0.0
+    DependencyType: "HARD"
+Manifests:
+  - Platform:
+      os: linux
+    Artifacts:
+      - Uri: "s3://${PUBLISHED_S3_BUCKET}-${AWS_ACCOUNT_ID}/${PUBLISH_COMPONENT_NAME}/${IMAGE_TAG}/compose.yaml"
+      - Uri: "docker:${ECR_HOST}/${PUSH_REPOSITORY}:${IMAGE_TAG}"
+    Lifecycle:
+      Run:
+        RequiresPrivilege: true
+        Script: |
+          docker compose -f {artifacts:path}/compose.yaml up --remove-orphans
+      Shutdown:
+        RequiresPrivilege: true
+        Script: |
+          docker compose -f {artifacts:path}/compose.yaml down --rmi local
+          docker system prune -f

@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "com.ShiroUz.WeatherCheckWithDocker"
+version = "1.0.5"
+description = ""
+authors = ["ShiroUz"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.12.10"
+awsiotsdk = "1.22.2"
+boto3 = "^1.38.30"
+
+[tool.poetry.group.rpi]
+optional = true
+
+[tool.poetry.group.rpi.dependencies]
+gpiozero = "2.0.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

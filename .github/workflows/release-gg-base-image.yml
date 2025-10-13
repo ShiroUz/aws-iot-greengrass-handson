@@ -1,0 +1,97 @@
+name: "Release GG Docker Base Image"
+on:
+  # https://zenn.dev/hankei6km/articles/use-github-acions-workflow-dispatch-inputs-safely
+  workflow_dispatch:
+    inputs:
+      branch:
+        type: string
+        required: true
+        description: 'GGで利用するPythonのBase ImageをReleaseするBranch名'
+      CPU:
+        type: choice
+        required: true
+        description: 'ReleaseするCPUアーキテクチャ'
+        options:
+          - arm32v7
+        default: 'arm32v7'
+      language:
+        type: choice
+        required: true
+        description: 'ReleaseするCPU/言語'
+        options:
+          - python
+      release-base-image:
+        type: choice
+        required: true
+        description: 'Releaseするベースイメージ'
+        options:
+          - 'wc-led' 
+          - 'ai-dp'
+      release-version:
+        type: string
+        required: true
+        description: 'Releaseする言語のバージョン'
+        default: '3.12.10'
+
+env:
+  AWS_DEFAULT_REGION: "ap-northeast-1"
+  AWS_ROLE_ARN: ${{ secrets.GG_COMPONENT_RELEASE_ROLE_ARN }}
+  BRANCH: ${{ github.event.inputs.branch }}
+  BUILD_TARGET_DIRECTORY: "./app/${{ github.event.inputs.release-base-image }}/base-image/${{ github.event.inputs.CPU }}${{ github.event.inputs.language }}"
+
+jobs:
+  release:
+    name: Base Image release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        fetch-depth: 0
+        ref: ${{env.BRANCH}}
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+      with:
+        role-to-assume: ${{ env.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+      
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+      
+    - name: Docker Build and Publish
+      id: build_publish
+      working-directory: ${{ env.BUILD_TARGET_DIRECTORY }}
+      run: |
+        echo "Publishing base image ..."
+        
+        set -xe
+        CONFIG_JSON=`cat ../../../../.github/workflows/config/base-image-config.json`
+        ECR_REGION=ap-northeast-1
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+        ECR_HOST=${AWS_ACCOUNT_ID}.dkr.ecr.ap-northeast-1.amazonaws.com
+        # NOW=$(date +%Y%m%d%H%M%S)
+        IMAGE_TAG="v${{github.event.inputs.release-version}}"
+        PUSH_REPOSITORY=`echo ${CONFIG_JSON} | jq -r ".[\"${{ github.event.inputs.release-base-image }}\"]"`
+
+        echo "PUSH_REPOSITORY: ${PUSH_REPOSITORY}"
+        # Use buildx for multi-architecture builds with increased timeout
+        docker buildx build --platform=linux/arm/v7 \
+          --tag ${ECR_HOST}/${PUSH_REPOSITORY}:${IMAGE_TAG} \
+          --push \
+          --progress=plain \
+          --build-arg BUILDKIT_STEP_TIMEOUT=3600 \
+          .
+        
+      

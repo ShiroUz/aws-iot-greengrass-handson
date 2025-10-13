@@ -1,0 +1,85 @@
+name: "Create and Push Images"
+on:
+  # https://zenn.dev/hankei6km/articles/use-github-acions-workflow-dispatch-inputs-safely
+  workflow_dispatch:
+    inputs:
+      branch:
+        type: string
+        required: true
+        description: 'イメージを作成するBranch名'
+      env:
+        type: choice
+        required: true
+        description: '環境名を記載(dev/stg/prod):certの取得で使用'
+        options:
+          - dev
+          - stg
+          - prod
+      project:
+        type: choice
+        required: true
+        description: 'Project名を記載:certの取得で使用'
+        options:
+          - aws-gg-handson
+      sub-sid:
+        type: choice
+        required: true
+        options:
+          - wc-led
+          - ai-dp
+        description: 'サブシステムIDを指定(wc-led/ai-dp)'
+      number:
+        type: string
+        required: true
+        description: 'デバイスのイメージ番号を指定(0/1/2/...)'
+
+env:
+  AWS_ROLE_ARN: ${{ secrets.IMAGES_RELEASE_ROLE_ARN }}
+  IOT_DATA_ENDPOINT: ${{ secrets.IOT_DATA_ENDPOINT }}
+  IOT_CRED_ENDPOINT: ${{ secrets.IOT_CRED_ENDPOINT }}
+  IMAGES_PUT_S3_BUCKET_NAME: ${{ secrets.IMAGES_PUT_S3_BUCKET_NAME }}
+  AWS_DEFAULT_REGION: "ap-northeast-1"
+  OBJECT_DATA: "output-arm-image"
+  BRANCH: ${{ github.event.inputs.branch }}
+  ENVIRONMENT: ${{ github.event.inputs.env }}
+  PROJECT: ${{ github.event.inputs.project }}
+  SUB_SID: ${{ github.event.inputs.sub-sid }}
+  NUMBER: ${{ github.event.inputs.number }}
+
+jobs:
+  create-images:
+    name: "Create Images & Push"
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      # Pre Build
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{env.BRANCH}}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
+        with:
+          # Terraformから作成したIAM Role名を指定する
+          # see: https://github.com/aws-actions/configure-aws-credentials
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Create Device Cert
+        run: ./.github/create-images-script/create_cert.sh
+
+      - name: Create Network Setting
+        run: ./.github/create-images-script/create_connect_router.sh
+
+      - name: Create Greengrass Configuration
+        run: ./.github/create-images-script/create_greengrass_config.sh
+
+      # Build
+      - name: Build
+        run: ./.github/create-images-script/build.sh
+
+      # Post Build
+      - name: Push S3 Images
+        run: aws s3 sync ${{ env.OBJECT_DATA }} s3://${{ env.IMAGES_PUT_S3_BUCKET_NAME }}/${{ env.ENVIRONMENT }}/${{ env.ENVIRONMENT }}-${{ env.PROJECT }}-${{ env.SUB_SID }}-${{ env.NUMBER }} --region ${{ env.AWS_DEFAULT_REGION }} --delete

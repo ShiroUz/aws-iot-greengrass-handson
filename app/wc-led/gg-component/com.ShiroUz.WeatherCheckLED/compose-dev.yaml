@@ -1,0 +1,22 @@
+services:
+  weather-check:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    restart: unless-stopped
+    privileged: true  # GPIO制御に必要な権限
+    devices:
+      - /dev/gpiomem:/dev/gpiomem  # GPIOメモリへのアクセス
+      - /dev/mem:/dev/mem  # メモリへの直接アクセス
+    volumes:
+      - /sys:/sys  # sysfsへのアクセス
+      - ./:/app  # アプリケーションコードをマウント
+    environment:
+      - PYTHONUNBUFFERED=1  # Pythonの出力バッファリングを無効化
+      - AWS_CONTAINER_CREDENTIALS_FULL_URI
+      - AWS_CONTAINER_AUTHORIZATION_TOKEN
+      - AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT # Greengrass Nucleusのドメインソケットパス
+      - SVCUID # コンポーネントが IPC ソケットに接続し、 AWS IoT Greengrass Core ソフトウェアと通信するために使用するシークレットトークン。
+      - AWS_IOT_THING_NAME # Greengrass Core デバイスの Thing 名
+      - AWS_REGION  # AWSリージョン
+    network_mode: "host"  # ホストネットワークを使用

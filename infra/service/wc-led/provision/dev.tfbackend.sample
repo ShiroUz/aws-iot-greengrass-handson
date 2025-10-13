@@ -1,0 +1,3 @@
+bucket = "dev-aws-gg-handson-tfstate-xxxxxxxxxxxxx"
+key    = "service/dev/aws-gg-handson/wc-led/provision/terraform.tfstate"
+region = "ap-northeast-1"

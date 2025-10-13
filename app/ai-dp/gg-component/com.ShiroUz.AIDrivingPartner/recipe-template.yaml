@@ -1,0 +1,52 @@
+---
+RecipeFormatVersion: "2020-01-25"
+ComponentName: "com.ShiroUz.AIDrivingPartner"
+ComponentVersion: "${COMPONENT_VERSION}"
+ComponentType: aws.greengrass.generic
+ComponentDescription: "AI Driving Partner component that monitors driving status and provides feedback"
+ComponentPublisher: "ShiroUz"
+ComponentConfiguration:
+  DefaultConfiguration:
+    LogLevel: "INFO"
+    IMAGES_DIR: "/app/images/"  # Directory for storing images
+    AUDIO_DIR: "/app/audio/"  # Directory for storing audio feedback
+    OpticalFlowThreshold: 100000  # Threshold for optical flow changes to detect near-miss incidents
+    CaptureInterval: 2  # Interval in seconds for capturing images
+    accessControl:
+      aws.greengrass.ipc.mqttproxy:
+        com.ShiroUz.aiDrivingPartner:pubsub:1:
+          policyDescription: Publish and subscribe to IoT Core topics
+          operations:
+            - "aws.greengrass#PublishToIoTCore"
+            - "aws.greengrass#SubscribeToIoTCore"
+          resources:
+            - "*"
+ComponentDependencies:
+  aws.greengrass.TokenExchangeService:
+    VersionRequirement: ~2.0.0
+    DependencyType: "HARD"
+  aws.greengrass.DockerApplicationManager:
+    VersionRequirement: ~2.0.0
+    DependencyType: "HARD"
+Manifests:
+  - Platform:
+      os: linux
+    Artifacts:
+      - Uri: "s3://${PUBLISHED_S3_BUCKET}-${AWS_ACCOUNT_ID}/${PUBLISH_COMPONENT_NAME}/${IMAGE_TAG}/compose.yaml"
+      - Uri: "docker:${ECR_HOST}/${PUSH_REPOSITORY}:${IMAGE_TAG}"
+    Lifecycle:
+      Setenv:
+        IMAGES_DIR: "{configuration:/IMAGES_DIR}"
+        AUDIO_DIR: "{configuration:/AUDIO_DIR}"
+        OpticalFlowThreshold: "{configuration:/OpticalFlowThreshold}"
+        CaptureInterval: "{configuration:/CaptureInterval}"
+        LogLevel: "{configuration:/LogLevel}"
+      Run:
+        RequiresPrivilege: true
+        Script: |
+          docker compose -f {artifacts:path}/compose.yaml up --remove-orphans
+      Shutdown:
+        RequiresPrivilege: true
+        Script: |
+          docker compose -f {artifacts:path}/compose.yaml down --rmi local
+          docker system prune -f

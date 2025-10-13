@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: IoT Setup test
+
+Parameters:
+  env:
+    Type: String
+    Description: Deploy Dev
+    Default: dev
+  pjc:
+    Type: String
+    Description: Deploy Dev
+    Default: aws-gg-handson-wc-led
+  LambdaName:
+    Type: String
+    Description: lambda name
+    Default: put-device-address
+
+Resources:
+  PutDeviceAddressLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${env}-${pjc}-${LambdaName}'
+      CodeUri: function/
+      Handler: src.service.handler.handler
+      Layers:
+        - !Ref PutDeviceAddressLambdaLayer
+      Runtime: python3.13
+      AutoPublishAlias: live
+      Architectures: [ arm64 ]
+      Timeout: 900
+      MemorySize: 256
+      Role: !GetAtt PutDeviceAddressLambdaRole.Arn
+      Environment: 
+        Variables:
+          REGION: ap-northeast-1
+          TABLE_NAME: !Sub '${env}-${pjc}-device-address-dynamodb'
+          PARTITION_KEY: ThingId
+
+  PutDeviceAddressLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: Layer description
+      ContentUri: 'layer/python.zip'
+      CompatibleRuntimes:
+        - python3.13
+    Metadata:
+      BuildMethod: python3.13
+
+  PutDeviceAddressLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${env}-${pjc}-${LambdaName}-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: lambda.amazonaws.com
+      Policies:
+        - PolicyName: !Sub "${env}-${pjc}-${LambdaName}-execution-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${env}-${pjc}-${LambdaName}*"
+              - Effect: "Allow"
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:Query"
+                  - "dynamodb:PutItem"
+                  - "dynamodb:BatchWriteItem"
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${env}-${pjc}-*"
+
+  CloudWatchPutDeviceAddressLambdaLogsGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${PutDeviceAddressLambda}
+      RetentionInDays: 14
+
+Outputs:
+  PutDeviceAddressLambdaName:
+    Value: !Ref PutDeviceAddressLambda
+  CloudWatchPutDeviceAddressLambdaLogsGroupName:
+    Value: !Ref CloudWatchPutDeviceAddressLambdaLogsGroup

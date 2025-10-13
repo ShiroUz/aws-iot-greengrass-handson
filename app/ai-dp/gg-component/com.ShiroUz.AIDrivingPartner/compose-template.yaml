@@ -1,0 +1,26 @@
+services:
+  ai-driving-partner:
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-northeast-1.amazonaws.com/aws-gg-handson/ai-dp:${IMAGE_TAG}
+    restart: "no"
+    privileged: true  # Required for camera access and GPIO control
+    devices:
+      - /dev/video0:/dev/video0  # Camera device
+      - /dev/gpiomem:/dev/gpiomem  # GPIO memory access
+      - /dev/mem:/dev/mem  # Direct memory access
+    volumes:
+      - /sys:/sys  # sysfs access
+      - $AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT:$AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT # IPC communication socket (for IoT Core communication via host)
+    environment:
+      - PYTHONUNBUFFERED=1  # Disable Python output buffering
+      - AWS_CONTAINER_CREDENTIALS_FULL_URI # URI for authentication credentials from Token Exchange Service
+      - AWS_CONTAINER_AUTHORIZATION_TOKEN # Authentication token from Token Exchange Service
+      - AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT # Greengrass Nucleus domain socket path
+      - SVCUID # Secret token used by the component to connect to the IPC socket and communicate with AWS IoT Greengrass Core software
+      - AWS_IOT_THING_NAME # Greengrass Core device Thing name
+      - AWS_REGION  # AWS region
+      - S3_BUCKET_NAME=${ENVIRONMENT}-aws-gg-handson-ai-dp-content-${AWS_ACCOUNT_ID}  # S3 bucket for near-miss images
+      - IMAGES_DIR
+      - AUDIO_DIR
+      - OpticalFlowThreshold
+      - CaptureInterval
+    network_mode: "host"  # Use host network

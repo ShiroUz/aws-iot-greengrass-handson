@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: IoT Greengrass AI Driving Partner Lambda Function
+
+Parameters:
+  env:
+    Type: String
+    Description: Deploy Dev
+    Default: dev
+  pj:
+    Type: String
+    Default: aws-gg-handson
+  pjc:
+    Type: String
+    Description: Deploy Dev
+    Default: aws-gg-handson-ai-dp
+  EventLambdaName:
+    Type: String
+    Description: lambda name
+    Default: e-ai-dp
+  REGION:
+    Type: String
+    Description: AWS Region
+    Default: ap-northeast-1
+  IOTENDPOINT:
+    Type: String
+    Description: AWS IoT Endpoint
+    Default: xxxxxxxxxxx-ats.iot.xxxxxxxxxxx.amazonaws.com
+  PARTITIONKEY:
+    Type: String
+    Description: DynamoDB Partition Key
+    Default: ThingId
+  RANGEKEY:
+    Type: String
+    Description: DynamoDB Range Key
+    Default: Timestamp
+  MODELID:
+    Type: String
+    Description: Bedrock Model ID
+    Default: amazon.nova-pro-v1:0   
+  INFERENCEPROFILEARN:
+    Type: String
+    Description: Bedrock Model Inference Profile ARN
+    Default: arn:aws:bedrock:ap-northeast-1:xxxxxxxxxxx:application-inference-profile/xxxxxxxxxxx
+  TTSMODEL:
+    Type: String
+    Description: Text-to-Speech Model
+    Default: Takumi
+
+Resources:
+  EventAIDrivingPartnerLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${env}-${pjc}-${EventLambdaName}'
+      CodeUri: function/
+      Handler: handler.event_handler
+      Layers:
+        - !Ref AIDrivingPartnerLambdaLayer
+      Runtime: python3.13
+      AutoPublishAlias: live
+      Architectures: [ arm64 ]
+      Timeout: 900
+      MemorySize: 256
+      Role: !GetAtt EventAIDrivingPartnerLambdaRole.Arn
+      Environment: 
+        Variables:
+          REGION: !Ref REGION
+          TABLE_NAME: !Sub '${env}-${pjc}-near-miss-dynamodb'
+          PARTITION_KEY: !Ref PARTITIONKEY
+          RANGE_KEY: !Ref RANGEKEY
+          MODELID: !Ref INFERENCEPROFILEARN
+          SYSTEMPROMPT_NEAR_MISS_FEEDBACK: !Sub '/${env}/${pj}/ai-dp/SYSTEMPROMPT_NEAR_MISS_FEEDBACK'
+          IOTENDPOINT: !Ref IOTENDPOINT
+          TTS_MODEL: !Ref TTSMODEL
+          S3_BUCKET_NAME: !Sub '${env}-${pjc}-content-${AWS::AccountId}'
+          INFERENCE_PROFILE_ARN: !Ref INFERENCEPROFILEARN
+      Events:
+        S3NearMissEvent:
+          Type: EventBridgeRule
+          Properties:
+            RuleName: !Sub "${env}-${pjc}-near-miss-event-rule"
+            Pattern:
+              source:
+                - "aws.s3"
+              detail-type:
+                - "Object Created"
+              detail:
+                bucket:
+                  name:
+                    - !Sub "${env}-${pjc}-content-${AWS::AccountId}"
+                object:
+                  key:
+                    - suffix: ".jpg"
+
+  AIDrivingPartnerLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: Layer description
+      ContentUri: 'layer/python.zip'
+      CompatibleRuntimes:
+        - python3.13
+    Metadata:
+      BuildMethod: python3.13
+
+  PermissionEventAIDrivingPartnerLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref EventAIDrivingPartnerLambda
+      Principal: events.amazonaws.com
+      SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${env}-${pjc}-near-miss-event-rule"
+      SourceAccount: !Sub "${AWS::AccountId}"
+
+  EventAIDrivingPartnerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${env}-${pjc}-main-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: lambda.amazonaws.com
+      Policies:
+        - PolicyName: !Sub "${env}-${pjc}-main-execution-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${env}-${pjc}-${EventLambdaName}*"
+              - Effect: "Allow"
+                Action:
+                  - "ssm:GetParameter"
+                  - "ssm:GetParameters"
+                  - "ssm:GetParametersByPath"
+                Resource: 
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${env}/${pj}/ai-dp/*"
+              - Effect: "Allow"
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:Query"
+                  - "dynamodb:Scan"
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${env}-${pjc}-*"
+              - Effect: "Allow"
+                Action:
+                  - "bedrock:InvokeModel"
+                Resource:
+                  - !Ref INFERENCEPROFILEARN
+                  - "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0"
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                Resource: !Sub "arn:aws:s3:::${env}-${pjc}-content-${AWS::AccountId}/*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:ListBucket"
+                Resource: !Sub "arn:aws:s3:::${env}-${pjc}-content-${AWS::AccountId}"
+              - Effect: "Allow"
+                Action:
+                  - "polly:*"
+                Resource: 
+                  - "*"
+              - Effect: "Allow"
+                Action:
+                  - "iot:Publish"
+                Resource: 
+                  - !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/cmd/aws_gg_handson/ai_dp/*/near-miss/feedback"
+              - Effect: "Allow"
+                Action:
+                  - "dynamodb:PutItem"
+                  - "dynamodb:UpdateItem"
+                  - "dynamodb:GetItem"
+                  - "dynamodb:BatchGetItem"
+                  - "dynamodb:Query"
+                Resource: 
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${env}-${pjc}-near-miss-dynamodb"
+
+  CloudWatchEventAIDrivingPartnerLambdaLogsGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${EventAIDrivingPartnerLambda}
+      RetentionInDays: 14
+
+Outputs:
+  AIDrivingPartnerEventLambdaName:
+    Value: !Ref EventAIDrivingPartnerLambda
+  CloudWatchEventAIDrivingPartnerLambdaLogsGroupName:
+    Value: !Ref CloudWatchEventAIDrivingPartnerLambdaLogsGroup

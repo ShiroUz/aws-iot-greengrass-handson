@@ -1,0 +1,32 @@
+version = 0.1
+[default]
+
+[default.build.parameters]
+debug = true
+use_container = false
+
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "dev-aws-gg-handson-ai-dp-content-lambda"
+s3_bucket = "dev-aws-gg-handson-app-resources-<AWS Account ID>"
+s3_prefix = "dev/aws-gg-handson/ai-dp/lambda/ai-dp"
+region = "ap-northeast-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_NAMED_IAM"
+disable_rollback = false
+parameter_overrides = [
+  "env=dev",
+  "pjc=aws-gg-handson",
+  "pjc=aws-gg-handson-ai-dp",
+  "MODELID=amazon.nova-pro-v1:0",
+  "INFERENCEPROFILEARN=arn:aws:bedrock:ap-northeast-1:xxxxxxxxxxxxx:application-inference-profile/xxxxxxxxxxxxx",
+  "IOTENDPOINT=xxxxxxxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com",
+  "TTSMODEL=Takumi",
+]
+tags = [
+  "pj=\"aws-gg-handson\"",
+  "pjc=\"aws-gg-handson-ai-dp\"",
+  "user=\"yuji.shirai\"",
+  "env=\"dev\"",
+  "deployment-type=\"SAM\""
+]

@@ -1,0 +1,71 @@
+name: "Deployment GG Component"
+on:
+  # https://zenn.dev/hankei6km/articles/use-github-acions-workflow-dispatch-inputs-safely
+  workflow_dispatch:
+    inputs:
+      branch:
+        type: string
+        required: true
+        description: 'ComponentをDeployするBranch名'
+      env:
+        type: choice
+        required: true
+        description: '環境名を記載(dev/stg/prod):certの取得で使用'
+        options:
+          - dev
+          - stg
+          - prod
+      component:
+        type: choice
+        required: true
+        description: 'DeployするComponent名'
+        options:
+          - wc-led
+          - ai-dp
+      component-version:
+        type: string
+        required: true
+        description: 'DeployするComponentのバージョン'
+        default: '1.0.0'
+env:
+  AWS_DEFAULT_REGION: "ap-northeast-1"
+  AWS_ROLE_ARN: ${{ secrets.GG_COMPONENT_DEPLOY_ROLE_ARN }}
+  BRANCH: ${{ github.event.inputs.branch }}
+  ENVIRONMENT: ${{ github.event.inputs.env }}
+  COMPONENT_VERSION: ${{ github.event.inputs.component-version }}
+  WORKING_DIRECTORY: "./app/${{ github.event.inputs.component }}/gg-component"
+
+jobs:
+  deployment:
+    name: Custom Component Deployment
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{env.BRANCH}}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Deploy Greengrass components
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          export AWS_ACCOUNT_ID=$(aws sts get-caller-identity |  jq -r '.Account')
+          export AWS_REGION=${{ env.AWS_DEFAULT_REGION }}
+          
+          # Generate deployment-dev.json from template
+          sed "s/\${COMPONENT_VERSION}/${{ env.COMPONENT_VERSION }}/g; s/\${AWS_ACCOUNT_ID}/${AWS_ACCOUNT_ID}/g" deployment-dev-template.json > deployment-dev.json
+          
+          DEPLOYMENT_FILE=file://deployment-${{ env.ENVIRONMENT }}.json
+          aws greengrassv2 create-deployment --cli-input-json ${DEPLOYMENT_FILE}
+          echo "Deployment finished!"
+
+          

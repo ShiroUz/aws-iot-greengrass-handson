@@ -1,0 +1,85 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Setup Wifi
+      copy:
+        src: "{{ playbook_dir }}/../docker/wpa_supplicant.conf"
+        dest: /etc/wpa_supplicant/wpa_supplicant.conf
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy Setup Device Shell Script
+      copy:
+        src: "{{ playbook_dir }}/../docker/setup_device.sh"
+        dest: /home/pi/setup_device.sh
+        owner: pi
+        group: pi
+        mode: '0755'
+    - name: Copy Setup Device Service
+      copy:
+        src: "{{ playbook_dir }}/../docker/setup_device.service"
+        dest: /etc/systemd/system/setup_device.service
+        owner: pi
+        group: pi
+        mode: '0644'
+    
+    - name: Copy Install Python Shell Script
+      copy:
+        src: "{{ playbook_dir }}/../docker/setup_python.sh"
+        dest: /home/pi/setup_python.sh
+        owner: pi
+        group: pi
+        mode: '0755'
+    - name: Copy Install Python Service
+      copy:
+        src: "{{ playbook_dir }}/../docker/setup_python.service"
+        dest: /etc/systemd/system/setup_python.service
+        owner: pi
+        group: pi
+        mode: '0644'
+    
+    - name: Copy Greeengrass Install script
+      copy:
+        src: "{{ playbook_dir }}/../docker/setup_greengrass.sh"
+        dest: /home/pi/setup_greengrass.sh
+        owner: pi
+        group: pi
+        mode: '0755'
+
+    - name: Create GreengrassInstaller directory
+      file:
+        path: "/home/pi/GreengrassInstaller"
+        state: directory
+        owner: pi
+        group: pi
+        mode: '0755'
+
+    - name: Copy Greeengrass config.yaml
+      copy:
+        src: "{{ playbook_dir }}/../docker/GreengrassInstaller/config.yaml"
+        dest: /home/pi/GreengrassInstaller/config.yaml
+        owner: pi
+        group: pi
+        mode: '0644'
+
+    - name: Copy certs
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../docker/certs/"
+        dest: /home/pi/certs/
+        owner: pi
+        group: pi
+        mode: '0644'
+
+    - name: Service Daemon reload
+      systemd:
+        daemon_reload: yes
+    - name: Setup Device Sevice Enable
+      systemd:
+        name: setup_device.service
+        enabled: yes
+    - name: Setup Device Start Sevice
+      systemd:
+        name: setup_device
+        state: started

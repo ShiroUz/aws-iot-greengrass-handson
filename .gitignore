@@ -1,0 +1,58 @@
+packer_cache
+log/
+inspection/
+
+**/.DS_Store
+**/.terraform/*
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfbackend
+
+# python setting
+.venv/
+__pycache__/
+python*
+
+# vscodeの設定
+.vscode/
+
+# reports
+reports/
+.coverage
+coverage.xml
+.pytest_cache
+
+# SAM
+.aws-sam/
+
+# 手元保存用
+*.log
+
+.bashrc_bak
+.env
+
+
+# certs
+*.pem*
+*.crt*
+certs/
+
+# SAM
+samconfig.toml
+
+# AWS credentials
+.aws/
+*.credentials
+
+# SSH keys
+id_rsa*
+id_ed25519*
+
+# Terraform vars (実環境の変数)
+*.tfvars
+!*.tfvars.example
+
+# Ansible
+*.vault
+vault-password.txt

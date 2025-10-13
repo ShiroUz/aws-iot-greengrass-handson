@@ -1,0 +1,66 @@
+{
+  "targetArn": "arn:aws:iot:ap-northeast-1:${AWS_ACCOUNT_ID}:thinggroup/dev-aws-gg-handson-ai-dp-child",
+  "deploymentName": "dev-aws-gg-handson-ai-dp-child-deployment",
+  "components": {
+    "aws.greengrass.Nucleus": {
+      "componentVersion": "2.15.0"
+    },
+    "aws.greengrass.Cli": {
+      "componentVersion": "2.15.0"
+    },
+    "aws.greengrass.DockerApplicationManager": {
+      "componentVersion": "2.0.14"
+    },
+    "aws.greengrass.LocalDebugConsole": {
+      "componentVersion": "2.4.5",
+      "configurationUpdate": {
+        "merge": "{\"httpsEnabled\":true}"
+      }
+    },
+    "com.ShiroUz.AIDrivingPartner": {
+      "componentVersion": "${COMPONENT_VERSION}",
+      "configurationUpdate": {
+        "merge": "{\"OpticalFlowThreshold\": 100000}"
+      }
+    },
+    "aws.greengrass.LogManager": {
+      "componentVersion": "2.3.10",
+      "configurationUpdate": {
+        "merge": "{\"logsUploaderConfiguration\":{\"systemLogsConfiguration\":{\"uploadToCloudWatch\":true},\"componentLogsConfigurationMap\":{\"com.ShiroUz.AIDrivingPartner\":{\"diskSpaceLimit\":20,\"diskSpaceLimitUnit\":\"MB\"}}}}"
+      }
+    },
+    "aws.greengrass.TokenExchangeService": {
+      "componentVersion": "2.0.3"
+    }
+  },
+  "deploymentPolicies": {
+    "failureHandlingPolicy": "ROLLBACK",
+    "componentUpdatePolicy": {
+      "timeoutInSeconds": 420,
+      "action": "NOTIFY_COMPONENTS"
+    },
+    "configurationValidationPolicy": {
+      "timeoutInSeconds": 300
+    }
+  },
+  "iotJobConfiguration": {
+    "abortConfig": {
+      "criteriaList": [
+        {
+          "failureType": "FAILED",
+          "action": "CANCEL",
+          "thresholdPercentage": 20,
+          "minNumberOfExecutedThings": 1
+        }
+      ]
+    },
+    "timeoutConfig": {
+      "inProgressTimeoutInMinutes": 40
+    }
+  },
+  "tags": {
+    "Environment": "dev",
+    "Project": "aws-gg-handson",
+    "SUB_SID": "ai-dp"
+  }
+}
