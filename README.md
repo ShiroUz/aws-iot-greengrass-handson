@@ -84,4 +84,5 @@ Set the `endpointAddress` value from the result as `IOT_CRED_ENDPOINT`.
 
 ### Creating OpenID Connect
 Please refer to the following for creation:
+
 https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services

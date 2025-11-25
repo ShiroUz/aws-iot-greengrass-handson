@@ -83,4 +83,5 @@ aws iot describe-endpoint --endpoint-type iot:CredentialProvider --region ap-nor
 
 ### OpenID Connectの作成
 以下を参考に、作成してください。
+
 https://docs.github.com/ja/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws
