@@ -1,4 +1,4 @@
-## aws-iot-greengrass-handson
+# aws-iot-greengrass-handson
 
 
 <table>
