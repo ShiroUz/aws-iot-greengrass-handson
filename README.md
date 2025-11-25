@@ -1,41 +1,88 @@
-## Github Repositoryに必要な設定
-### デバイスのProvisioningで利用するパラメータ
-設定方法は以下を参考
-https://docs.github.com/ja/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets
+## aws-iot-greengrass-handson
+
+
+<table>
+	<thead>
+    	<tr>
+      		<th style="text-align:center">English</th>
+      		<th style="text-align:center"><a href="README_ja.md">日本語</a></th>
+    	</tr>
+  	</thead>
+</table>
+
+## Overview
+This repository is a hands-on educational material for building an edge computing system using Raspberry Pi as an IoT device and leveraging AWS IoT Greengrass.
+
+For more details, please refer to Chapter 13 "Hands-on AWS IoT Greengrass with Sample Applications" in [TECH BOOK By KINTO Technologies Vol.01](https://techbookfest.org/product/qCPrJpWLmKnLt7eWVd9zJ6).
+The book is available for free download.
+
+### Key Features
+This project includes two sample applications:
+
+#### 1. Weather Check LED (wc-led)
+- Application that checks weather information and notifies via LED
+- Voice synthesis functionality using AWS Lambda, Amazon Polly, and Amazon Bedrock
+- Device control via IoT Core
+
+#### 2. AI Driving Partner (ai-dp)
+- AI-driven partner application
+- Interactive functionality using AWS Lambda, Amazon Polly, and Amazon Bedrock
+- Real-time communication via IoT Core
+
+### Architecture
+- **Device Layer**: AWS IoT Greengrass V2 running on Raspberry Pi
+- **Edge Layer**: Dockerized Greengrass components
+- **Cloud Layer**: AWS managed services including Lambda, IoT Core, S3, DynamoDB, Bedrock
+- **IaC**: Infrastructure management with Terraform (under infra/)
+- **CI/CD**: Automated Docker image build and deployment with GitHub Actions
+
+### Technology Stack
+- **Device Provisioning**: Ansible, systemd services
+- **Containerization**: Docker, Docker Compose
+- **Infrastructure**: Terraform
+- **Language**: Python 3.13
+- **CI/CD**: GitHub Actions (OIDC authentication)
+- **AWS Services**: IoT Greengrass V2, IoT Core, Lambda, Bedrock, Polly, S3, DynamoDB
+
+## Required GitHub Repository Configuration After Fork
+### Parameters Used for Device Provisioning
+Refer to the following for configuration instructions:
+https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions
 
 #### - Secrets
-- `IMAGES_RELEASE_ROLE_ARN`: Github Actionsで利用するImageをS3に配置するためのRole
+- `IMAGES_RELEASE_ROLE_ARN`: Role for placing images used by GitHub Actions in S3
   - `arn:aws:iam::${account_name}:role/aws-gg-handson-images-release-gha-role`
-- `GG_COMPONENT_RELEASE_ROLE_ARN`: Github ActionsでGreengrass コンポーネントをリリースするためのRole
+- `GG_COMPONENT_RELEASE_ROLE_ARN`: Role for releasing Greengrass components via GitHub Actions
   - `arn:aws:iam::${account_name}:role/aws-gg-handson-gg-component-release-gha-role`
-- `GG_COMPONENT_DEPLOY_ROLE_ARN`: Github ActionsでGreengrass コンポーネントをデプロイするためのRole
+- `GG_COMPONENT_DEPLOY_ROLE_ARN`: Role for deploying Greengrass components via GitHub Actions
   - `arn:aws:iam::${account_name}:role/aws-gg-handson-gg-component-deploy-gha-role`
-- `IOT_DATA_ENDPOINT`: IoT Dataエンドポイント
-  - 確認方法は `IOT_DATA_ENDPOINT確認方法`を参照
-- `IOT_CRED_ENDPOINT`: IoT認証情報エンドポイント
-  - 確認方法は `IOT_CRED_ENDPOINT確認方法`を参照
-- `IMAGES_PUT_S3_BUCKET_NAME`: S3バケット名（イメージ保存用）
+- `IOT_DATA_ENDPOINT`: IoT Data endpoint
+  - See `How to Check IOT_DATA_ENDPOINT` for verification method
+- `IOT_CRED_ENDPOINT`: IoT Credential endpoint
+  - See `How to Check IOT_CRED_ENDPOINT` for verification method
+- `IMAGES_PUT_S3_BUCKET_NAME`: S3 bucket name (for image storage)
 
-### IOT_DATA_ENDPOINT確認方法
+### How to Check IOT_DATA_ENDPOINT
 
-AWS CLIを使用してIoT Dataエンドポイントを確認します：
+Check the IoT Data endpoint using AWS CLI:
 
 ```bash
 aws iot describe-endpoint --endpoint-type iot:Data-ATS --region ap-northeast-1
 ```
 
-結果の`endpointAddress`の値を`IOT_DATA_ENDPOINT`として設定してください。
+Set the `endpointAddress` value from the result as `IOT_DATA_ENDPOINT`.
 
-### IOT_CRED_ENDPOINT確認方法
+### How to Check IOT_CRED_ENDPOINT
 
-AWS CLIを使用してIoT認証情報エンドポイントを確認します：
+Check the IoT Credential endpoint using AWS CLI:
 
 ```bash
 aws iot describe-endpoint --endpoint-type iot:CredentialProvider --region ap-northeast-1
 ```
 
-結果の`endpointAddress`の値を`IOT_CRED_ENDPOINT`として設定してください。
+Set the `endpointAddress` value from the result as `IOT_CRED_ENDPOINT`.
 
-### OpenID Connectの作成
-以下を参考に、作成してください。
-https://docs.github.com/ja/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws
+### Creating OpenID Connect
+Please refer to the following for creation:
+
+https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
