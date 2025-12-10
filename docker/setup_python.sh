@@ -78,6 +78,24 @@ source $HOME/setup_greengrass.sh
 sudo service pigpiod start
 sudo systemctl enable pigpiod
 
+# audioデバイスの設定
+cat > ~/.asoundrc << 'EOF'
+pcm.!default {
+    type hw
+    card 1
+    device 0
+}
+
+ctl.!default {
+    type hw
+    card 1
+}
+EOF
+# ボリューム最大化
+amixer -c 1 set Headphone 100%
+
+sudo cp ~/.asoundrc /etc/asound.conf
+
 # サービスの自動起動無効
 sudo systemctl disable setup_python.service
 
