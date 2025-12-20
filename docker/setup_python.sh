@@ -82,17 +82,17 @@ sudo systemctl enable pigpiod
 cat > ~/.asoundrc << 'EOF'
 pcm.!default {
     type hw
-    card 1
+    card Headphones
     device 0
 }
 
 ctl.!default {
     type hw
-    card 1
+    card Headphones
 }
 EOF
 # ボリューム最大化
-amixer -c 1 set Headphone 100%
+amixer -c Headphones set Headphone 100%
 
 sudo cp ~/.asoundrc /etc/asound.conf
 
