@@ -4,7 +4,7 @@
 ```
 $ pyenv local ${python version}
 $ pyenv glocal ${python version}
-$ poetry update
+$ poetry self update
 $ poetry export --format requirements.txt -o ../layer/requirements.txt --without-hashes
 $ cd ../layer
 $ pip3 install -r requirements.txt -t ./python/

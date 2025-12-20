@@ -7,8 +7,11 @@ services:
       - /dev/video0:/dev/video0  # Camera device
       - /dev/gpiomem:/dev/gpiomem  # GPIO memory access
       - /dev/mem:/dev/mem  # Direct memory access
+      - /dev/snd:/dev/snd  # Audio device
     volumes:
       - /sys:/sys  # sysfs access
+      - /usr/share/alsa:/usr/share/alsa:ro  # ALSA configuration
+      - /etc/asound.conf:/etc/asound.conf:ro  # ALSA system config
       - $AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT:$AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT # IPC communication socket (for IoT Core communication via host)
     environment:
       - PYTHONUNBUFFERED=1  # Disable Python output buffering

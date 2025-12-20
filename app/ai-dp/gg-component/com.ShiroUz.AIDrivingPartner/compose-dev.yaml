@@ -7,8 +7,11 @@ services:
     privileged: true  # Required for camera access
     devices:
       - /dev/video0:/dev/video0  # Camera device
+      - /dev/snd:/dev/snd  # Audio device
     volumes:
       - ./:/app  # Mount local directory for development
+      - /usr/share/alsa:/usr/share/alsa:ro  # ALSA configuration
+      - /etc/asound.conf:/etc/asound.conf:ro  # ALSA system config
     environment:
       - PYTHONUNBUFFERED=1  # Disable Python output buffering
       - AWS_PROFILE=default  # Use local AWS credentials

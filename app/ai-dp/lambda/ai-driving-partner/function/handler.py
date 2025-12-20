@@ -92,6 +92,7 @@ def event_handler(event, context):
             'audio_key': feedback_audio_s3_key, 
             'bucket': bucket_name
         }
+        logger.info(f"IoT Core Publish Topic: {topic}, Payload: {payload}")
         iotcore.publish(topic, payload)
         logger.info("IoT Core Publish Success")
 
